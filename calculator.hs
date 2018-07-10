@@ -1,4 +1,6 @@
 import Data.Char
+-- import Control.Monad.Instances
+import System.IO
 -- import Data.Monad
 
 -- 値
@@ -67,7 +69,7 @@ calcError s = Left s
 -- トークンがSubであればexprを再帰呼び出しして値をOp1にセットして返す. negは単項演算子 - を処理する関数
 factor :: [Token] -> Calc (Expr, [Token])
 factor (Number x : xs) = return (Num x, xs) -- 先頭がNumberだったときの処理
-factor (Lpar x : xs) = expr xs >>= \(e, y:ys) ->  -- >>= は連結を表す(おそらくexpr xs の返り値をラムダ計算の引数に入力するという意味だと思う)
+factor (Lpar: xs) = expr xs >>= \(e, y:ys) ->  -- >>= は連結を表す(おそらくexpr xs の返り値をラムダ計算の引数に入力するという意味だと思う)
   case y of
     Rpar -> return (e, ys)
     _    -> calcError "')' expected"
@@ -106,8 +108,60 @@ expression xs = expr xs >>= \(e, y:ys) ->
     Semic -> return (e, ys)
     _     -> calcError "expression error"
 
+-- 構文木の評価
+evalExpr :: Expr -> Value
+evalExpr (Num x) = x
+evalExpr (Op1 op e) = op (evalExpr e)
+evalExpr (Op2 op e1 e2) = op (evalExpr e1) (evalExpr e2)
 
--- 処理の流れ
--- 1. lexerにて文字列で与えられた式を字句解析, Tokenのリストにする
--- 2. expressionにてlexerから受け取ったTokenのリストをASTに落とし込む
---     exprを再帰呼び出しして
+-- 算術演算
+neg :: Value -> Value
+neg (INT x) = INT (- x)
+neg (REAL x) = REAL (- x)
+
+add :: Value -> Value -> Value
+add (INT x) (INT y) = INT (x + y)
+add (REAL x) (REAL y) = REAL (x + y)
+add (INT x)  (REAL y) = REAL (fromIntegral x + y)
+add (REAL x) (INT y)  = REAL (x + fromIntegral y)
+
+sub :: Value -> Value -> Value
+sub (INT x) (INT y) = INT (x - y)
+sub (REAL x) (REAL y) = REAL (x - y)
+sub (INT x)  (REAL y) = REAL (fromIntegral x - y)
+sub (REAL x) (INT y)  = REAL (x - fromIntegral y)
+
+mul :: Value -> Value -> Value
+mul (INT x) (INT y) = INT (x * y)
+mul (REAL x) (REAL y) = REAL (x * y)
+mul (INT x)  (REAL y) = REAL (fromIntegral x * y)
+mul (REAL x) (INT y)  = REAL (x * fromIntegral y)
+
+div' :: Value -> Value -> Value
+div' (INT x) (INT y) = INT (x `div` y)
+div' (REAL x) (REAL y) = REAL (x / y)
+div' (INT x)  (REAL y) = REAL (fromIntegral x / y)
+div' (REAL x) (INT y)  = REAL (x / fromIntegral y)
+
+
+-- 式の入力と評価
+topLevel :: String -> IO ()
+topLevel xs = do
+  putStr "Calc>> "
+  -- 字句解析
+  let (ys, xs') = lexer xs
+  -- 構文解析
+  case expression ys of
+    Left mes -> do
+      putStrLn mes
+      topLevel xs'
+    Right (e, _) -> do 
+      case evalExpr e of 
+        INT x -> putStrLn $ show x
+        REAL x -> putStrLn $ show x
+      topLevel xs'
+
+main :: IO ()
+main = do
+  xs <- hGetContents stdin
+  topLevel xs
