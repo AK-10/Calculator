@@ -14,8 +14,8 @@
   - '+' -> Add
 などのリストのリストへ変換する
 
--expression にて構文解析
-expr -> term -> factor で再帰降下法を行う
+- expression にて構文解析
+  - expr -> term -> factor で再帰降下法を行う
 
 - evalExpr で意味解析
 
